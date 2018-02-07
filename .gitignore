@@ -151,3 +151,4 @@ fabric.properties
 
 .idea/
 __pycache__/
+settings.json
