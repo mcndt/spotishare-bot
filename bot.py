@@ -10,6 +10,12 @@ with open('settings.json') as file:
 
 client = discord.Client()
 
+# auxiliary method
+def is_listening(member):
+    for activity in member.activities:
+        if type(activity) == discord.activity.Spotify:
+            return True
+    return False
 
 # startup sequence
 @client.event
@@ -18,31 +24,36 @@ async def on_ready():
     print('Bot name : %s' % client.user.name)
     print('ID       : %s' % client.user.id)
     print('role name: \'%s\'' % role_name)
-    print('Active servers: %d' % len(client.servers))
+    print('Active servers: %d' % len(client.guilds))
     print('-------')
     # assign correct groups upon initialization
-    for server in client.servers:
-        listen_role = discord.utils.get(server.roles, name=role_name)
+    for guild in client.guilds:
+        listen_role = discord.utils.get(guild.roles, name=role_name)
 
-        for member in server.members:
-            if str(member.game) == 'Spotify':
-                await client.add_roles(member, listen_role)
+        for member in guild.members:
+            if is_listening(member):
+                await member.add_roles(listen_role, reason="is listening")
             else:
-                await client.remove_roles(member, listen_role)
+                await member.remove_roles(listen_role, reason="is not listening")
 
 
 # Group switching when member starts listening
 @client.event
 async def on_member_update(before, after):
-     if str(before.game) != str(after.game):
-        listen_role = discord.utils.get(after.server.roles, name=role_name)
+    if before.activities != after.activities:
 
-        if str(after.game) == 'Spotify':
-            await client.add_roles(after, listen_role)
-            print('[%s]: %s is now listening' % (after.server.name, after.name))
-        else:
-            await client.remove_roles(after, listen_role)
-            print('[%s]: %s stopped listening' % (after.server.name, after.name))
+        is_listening_before = is_listening(before)
+        is_listening_after  = is_listening(after)
+        
+        if not is_listening_before and is_listening_after:
+            listen_role = discord.utils.get(after.guild.roles, name=role_name)
+            await after.add_roles(listen_role, reason="started listening")
+            print('[%s]: %s is now listening' % (after.guild.name, after.name))
 
-
+        elif is_listening_before and not is_listening_after:
+            listen_role = discord.utils.get(after.guild.roles, name=role_name)
+            await after.remove_roles(listen_role, reason="stopped listening")
+            print('[%s]: %s stopped listening' % (after.guild.name, after.name))
+ 
+ 
 client.run(token)
